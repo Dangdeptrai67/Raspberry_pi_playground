@@ -1,30 +1,19 @@
 
+# MakeyBot
 from gpiozero import LED, PWMLED, RGBLED, Servo
 from time import sleep
 
+ROBOT_NAME = "Jenny"
 
-ROBOT_NAME = "Jenny"  # Only process commands meant for this robot
-
-# Raspberry Pi Pins
 right_eye_led = RGBLED(red="BOARD8",  green="BOARD10", blue="BOARD12")
 left_eye_led  = RGBLED(red="BOARD13", green="BOARD15", blue="BOARD16")
 red_led    = LED("BOARD5")
 yellow_led = LED("BOARD7")
 green_led  = LED("BOARD11")
 
-
-
-# command = {"robot": "Bob",        "features": {"eyes": {"set_right_rgb_eye_color": [255, 0,   0  ]}}}  # Wrong robot, ignored
-# command = {"robot": "RogerRoger", "features": {"eyes": {"set_right_rgb_eye_color": [255, 0,   0  ]}}}  # Wrong robot, ignored
-# command = {"robot": "Jenny",      "features": {"eyes": {"set_right_rgb_eye_color": [255, 0,   0  ]}}}  # Right eye RED
-# command = {"robot": "Jenny",      "features": {"eyes": {"set_left_rgb_eye_color":  [0,   255, 0  ]}}}  # Left eye GREEN
-# command = {"robot": "Jenny",      "features": {"eyes": {"set_right_rgb_eye_color": [0,   0,   255]}}}  # Right eye BLUE
-command   = {"robot": "Jenny",      "features": {"eyes": {"set_left_rgb_eye_color":  [168, 50,  255]}}}  # Left eye PURPLE
-
-
+command = {"robot": "Jenny", "features": {"eyes": {"set_left_rgb_eye_color": [168, 50, 255]}}}
 
 def rgb_255_to_1(rgb):
-    """Convert [0-255, 0-255, 0-255] list to (0.0-1.0, 0.0-1.0, 0.0-1.0) tuple."""
     r, g, b = rgb
     return (r / 255, g / 255, b / 255)
 
@@ -37,13 +26,11 @@ def all_eyes_off():
     right_eye_led.color = (0, 0, 0)
     left_eye_led.color  = (0, 0, 0)
 
-
 def run_boot_test():
     print("--- Running Boot Test ---")
-
     print("  Testing traffic LEDs...")
     for led, name in [(red_led, "red"), (yellow_led, "yellow"), (green_led, "green")]:
-        print(f"    {name} ON")
+        print("    LED: " + name + " ON")
         led.on()
         sleep(0.5)
         led.off()
@@ -56,64 +43,49 @@ def run_boot_test():
         ([0,   0,   255], "blue" ),
     ]
     for rgb, name in test_colors:
-        print(f"    eyes -> {name}")
+        print("    Eyes color: " + name)
         color = rgb_255_to_1(rgb)
         right_eye_led.color = color
         left_eye_led.color  = color
         sleep(0.5)
     all_eyes_off()
-
-    print("--- Boot Test Complete ---\n")
-
+    print("--- Boot Test Complete ---")
 
 def get_command():
-    """Returns the hardcoded command dictionary."""
     return command
 
-
-
 def rgb_eyes(eye, eye_rgb):
-    """
-    Set an eye LED to the given RGB color.
-
-    Args:
-        eye     (str):  "left" or "right"
-        eye_rgb (list): RGB values in 0-255 range e.g. [255, 0, 0]
-    """
     eye_red, eye_green, eye_blue = eye_rgb
-    print(f"  Eye: {eye} | R={eye_red}, G={eye_green}, B={eye_blue}")
-
+    print("  Eye: " + eye + " | R: " + str(eye_red) + " G: " + str(eye_green) + " B: " + str(eye_blue))
     normalized = rgb_255_to_1(eye_rgb)
-    print(f"  Normalized: R={normalized[0]:.3f}, G={normalized[1]:.3f}, B={normalized[2]:.3f}")
-
+    print("  Normalized | R: " + str(round(normalized[0], 3)) + " G: " + str(round(normalized[1], 3)) + " B: " + str(round(normalized[2], 3)))
     if eye == "right":
         right_eye_led.color = normalized
     elif eye == "left":
         left_eye_led.color = normalized
     else:
-        print(f"  Unknown eye: '{eye}' — expected 'left' or 'right'")
-
+        print("  Unknown eye: " + eye + " expected left or right")
 
 def traffic_stop():
     all_traffic_off()
     red_led.on()
-    print("  Traffic: STOP (red ON)")
+    print("  Traffic: STOP | red ON")
 
 def traffic_caution():
     all_traffic_off()
     yellow_led.on()
-    print("  Traffic: CAUTION (yellow ON)")
+    print("  Traffic: CAUTION | yellow ON")
 
 def traffic_go():
     all_traffic_off()
     green_led.on()
-    print("  Traffic: GO (green ON)")
+    print("  Traffic: GO | green ON")
 
 def traffic_cycle(red_duration, yellow_duration, green_duration):
-    print(f"  Traffic: CYCLE (red={red_duration}ms, yellow={yellow_duration}ms, green={green_duration}ms)")
-    traffic_stop();   sleep(red_duration    / 1000)
+    print("  Traffic: CYCLE | red: " + str(red_duration) + "ms  yellow: " + str(yellow_duration) + "ms  green: " + str(green_duration) + "ms")
+    traffic_stop();    sleep(red_duration    / 1000)
     traffic_caution(); sleep(yellow_duration / 1000)
-    traffic_go();     sleep(green_duration  / 1000)
+    traffic_go();      sleep(green_duration  / 1000)
     all_traffic_off()
 
 def handle_traffic_command(traffic_cmd):
@@ -121,7 +93,7 @@ def handle_traffic_command(traffic_cmd):
         if   traffic_cmd == "stop":    traffic_stop()
         elif traffic_cmd == "caution": traffic_caution()
         elif traffic_cmd == "go":      traffic_go()
-        else: print(f"  Unknown traffic command: {traffic_cmd}")
+        else: print("  Unknown traffic command: " + traffic_cmd)
     elif isinstance(traffic_cmd, dict):
         if traffic_cmd.get("mode") == "cycle":
             traffic_cycle(
@@ -130,43 +102,30 @@ def handle_traffic_command(traffic_cmd):
                 green_duration  = traffic_cmd.get("green_duration",  4000),
             )
 
-
 def handle_command(cmd):
-    # Check robot name — ignore commands not meant for this robot
     robot = cmd.get("robot", "")
     if robot != ROBOT_NAME:
-        print(f"  Ignoring command for robot '{robot}' (I am '{ROBOT_NAME}')")
+        print("  Ignoring command for robot: " + robot + " | I am: " + ROBOT_NAME)
         return
-
-    print(f"  Command accepted for robot '{robot}'")
+    print("  Command accepted for robot: " + robot)
     features = cmd.get("features", {})
-
-    # --- Eyes ---
     if "eyes" in features:
         eyes_cmd = features["eyes"]
         print("  Handling eye command...")
-
         if "set_right_rgb_eye_color" in eyes_cmd:
-            eye_rgb = eyes_cmd["set_right_rgb_eye_color"]
-            rgb_eyes("right", eye_rgb)
-
+            rgb_eyes("right", eyes_cmd["set_right_rgb_eye_color"])
         if "set_left_rgb_eye_color" in eyes_cmd:
-            eye_rgb = eyes_cmd["set_left_rgb_eye_color"]
-            rgb_eyes("left", eye_rgb)
-
-    # --- Traffic Light ---
+            rgb_eyes("left", eyes_cmd["set_left_rgb_eye_color"])
     if "stop_light" in features:
         print("  Handling traffic command...")
         handle_traffic_command(features["stop_light"]["traffic"])
 
 def main():
-    print(f"Starting Program — Robot Name: '{ROBOT_NAME}'\n")
+    print("Starting Program | Robot: " + ROBOT_NAME)
     run_boot_test()
-
     cmd = get_command()
-    print(f"Command received: {cmd}")
+    print("Command received: " + str(cmd))
     handle_command(cmd)
-
     sleep(3)
     all_eyes_off()
     all_traffic_off()
